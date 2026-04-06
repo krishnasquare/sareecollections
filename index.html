@@ -641,28 +641,62 @@
         }
 
         // Parse CSV from Google Sheets
-        // Expected columns: id, name, category, price, image, images, description, details, available, stock
+        // Dynamically maps columns by header name — works regardless of column order or missing columns
         function parseCSV(csv) {
             const lines = csv.trim().split('\n');
-            const result = [];
+            if (lines.length < 2) return [];
 
-            for (let i = 1; i < lines.length; i++) {
-                const values = lines[i].split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
-                if (values.length >= 4) {
-                    const product = {
-                        id: parseInt(values[0]) || i,
-                        name: values[1]?.replace(/"/g, '').trim() || 'Unnamed Product',
-                        category: values[2]?.replace(/"/g, '').trim() || 'Silk',
-                        price: parseInt(values[3]?.replace(/"/g, '').replace(/[₹,]/g, '')) || 1000,
-                        image: values[4]?.replace(/"/g, '').trim() || '',
-                        images: values[5]?.replace(/"/g, '').trim()?.split('|') || [values[4]?.replace(/"/g, '').trim()],
-                        description: values[6]?.replace(/"/g, '').trim() || '',
-                        details: values[7]?.replace(/"/g, '').trim()?.split('|') || [],
-                        available: values[8]?.replace(/"/g, '').trim().toLowerCase() !== 'false',
-                        stock: parseInt(values[9]) || 10
-                    };
-                    if (product.image && product.name) result.push(product);
+            // Parse a single CSV line respecting quoted fields (handles commas inside quotes)
+            function parseLine(line) {
+                const result = [];
+                let cur = '';
+                let inQuotes = false;
+                for (let c = 0; c < line.length; c++) {
+                    const ch = line[c];
+                    if (ch === '"') {
+                        inQuotes = !inQuotes;
+                    } else if (ch === ',' && !inQuotes) {
+                        result.push(cur.trim());
+                        cur = '';
+                    } else {
+                        cur += ch;
+                    }
                 }
+                result.push(cur.trim());
+                return result;
+            }
+
+            // Build a header→index map from row 1
+            const headers = parseLine(lines[0]).map(h => h.toLowerCase().replace(/"/g, '').trim());
+            const col = (name) => headers.indexOf(name);
+
+            const result = [];
+            for (let i = 1; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (!line) continue;
+                const v = parseLine(line);
+
+                const clean = (idx) => idx >= 0 ? (v[idx] || '').replace(/"/g, '').trim() : '';
+                const splitPipe = (str) => str.split('|').map(s => s.trim()).filter(Boolean);
+
+                const imageVal = clean(col('image'));
+                const imagesVal = clean(col('images'));
+
+                const product = {
+                    id: parseInt(clean(col('id'))) || i,
+                    name: clean(col('name')) || 'Unnamed Product',
+                    category: clean(col('category')) || 'Silk',
+                    price: parseInt(clean(col('price')).replace(/[₹,\s]/g, '')) || 1000,
+                    image: imageVal,
+                    // If no 'images' column, fall back to the main image
+                    images: imagesVal ? splitPipe(imagesVal) : [imageVal],
+                    description: clean(col('description')),
+                    details: splitPipe(clean(col('details'))),
+                    available: clean(col('available')).toLowerCase() !== 'false',
+                    stock: parseInt(clean(col('stock'))) || 10
+                };
+
+                if (product.image && product.name) result.push(product);
             }
             return result;
         }

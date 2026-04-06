@@ -330,6 +330,9 @@
 
                 <!-- Products Grid -->
                 <div id="collectionGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8"></div>
+
+                <!-- Pagination -->
+                <div id="pagination" class="flex justify-center items-center gap-4 mt-16"></div>
             </div>
         </main>
     </div>
@@ -454,11 +457,11 @@
     <div id="productPage" class="page">
         <main class="pt-24 pb-16 px-4 bg-luxury-cream min-h-screen">
             <div class="max-w-7xl mx-auto">
-                <button onclick="showPage('home')" class="flex items-center gap-2 text-luxury-burgundy hover:text-luxury-gold transition mb-8">
+                <button onclick="goBack()" class="flex items-center gap-2 text-luxury-burgundy hover:text-luxury-gold transition mb-8 font-medium">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
                     </svg>
-                    Back to Collection
+                    Back to <span id="backText">Collection</span>
                 </button>
 
                 <div id="productDetailContent" class="grid md:grid-cols-2 gap-12"></div>
@@ -608,6 +611,9 @@
         let currentFilter = 'All';
         let currentProduct = null;
         let detailQty = 1;
+        let currentPage = 1;
+        let lastPage = 'home';
+        const itemsPerPage = 8;
         const whatsappNumber = '919876543210';
 
         // ========================
@@ -717,7 +723,8 @@
 
         window.addEventListener('scroll', () => {
             const header = document.querySelector('header');
-            if (window.scrollY > 50) {
+            const activePage = document.querySelector('.page.active').id;
+            if (activePage !== 'homePage' || window.scrollY > 50) {
                 header.classList.add('scrolled');
             } else {
                 header.classList.remove('scrolled');
@@ -813,9 +820,28 @@
         // PAGE NAVIGATION
         // ========================
         function showPage(pageName) {
+            if (pageName !== 'product') lastPage = pageName;
+            
             document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
             document.getElementById(pageName + 'Page').classList.add('active');
+            
+            // Header visibility logic
+            const header = document.querySelector('header');
+            if (pageName !== 'home' || window.scrollY > 50) {
+                header.classList.add('scrolled');
+            } else {
+                header.classList.remove('scrolled');
+            }
+
+            if (pageName === 'product') {
+                document.getElementById('backText').textContent = lastPage.charAt(0).toUpperCase() + lastPage.slice(1);
+            }
+
             window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function goBack() {
+            showPage(lastPage);
         }
 
         // ========================
@@ -824,15 +850,24 @@
         function renderProducts() {
             const filtered = currentFilter === 'All' ? products : products.filter(p => p.category.toLowerCase() === currentFilter.toLowerCase());
 
-            if (filtered.length === 0) {
-                document.getElementById('productsGrid').innerHTML = '<div class="col-span-full text-center py-20"><p class="text-luxury-charcoal/60 text-lg">No products found in this category</p></div>';
-                if (document.getElementById('collectionGrid')) {
-                    document.getElementById('collectionGrid').innerHTML = '<div class="col-span-full text-center py-20"><p class="text-luxury-charcoal/60 text-lg">No products found in this category</p></div>';
-                }
-                return;
-            }
+            // Render Homepage Grid (Limit to 8)
+            const homeGridHTML = filtered.slice(0, 8).map(product => getProductHTML(product)).join('');
+            document.getElementById('productsGrid').innerHTML = homeGridHTML || '<div class="col-span-full text-center py-20"><p class="text-luxury-charcoal/60 text-lg">No products found</p></div>';
 
-            const productHTML = filtered.map(product => `
+            // Render Collection Grid (With Pagination)
+            if (document.getElementById('collectionGrid')) {
+                const start = (currentPage - 1) * itemsPerPage;
+                const end = start + itemsPerPage;
+                const paginated = filtered.slice(start, end);
+
+                document.getElementById('collectionGrid').innerHTML = paginated.map(product => getProductHTML(product)).join('') || '<div class="col-span-full text-center py-20"><p class="text-luxury-charcoal/60 text-lg">No products found in this category</p></div>';
+                
+                renderPagination(filtered.length);
+            }
+        }
+
+        function getProductHTML(product) {
+            return `
                 <div class="product-card bg-white rounded-2xl overflow-hidden shadow-md hover:shadow-2xl cursor-pointer" onclick="viewProduct(${product.id})">
                     <div class="img-wrap relative h-72 overflow-hidden bg-gray-100">
                         <img src="${product.image}" alt="${product.name}" class="w-full h-full object-cover">
@@ -853,12 +888,29 @@
                         </div>
                     </div>
                 </div>
-            `).join('');
+            `;
+        }
 
-            document.getElementById('productsGrid').innerHTML = productHTML;
-            if (document.getElementById('collectionGrid')) {
-                document.getElementById('collectionGrid').innerHTML = productHTML;
+        function renderPagination(totalItems) {
+            const totalPages = Math.ceil(totalItems / itemsPerPage);
+            let html = '';
+            
+            if (totalPages > 1) {
+                for (let i = 1; i <= totalPages; i++) {
+                    html += `
+                        <button onclick="changePage(${i})" class="w-10 h-10 rounded-full border-2 border-luxury-burgundy font-bold flex items-center justify-center transition-all ${currentPage === i ? 'bg-luxury-burgundy text-luxury-gold-pale shadow-lg' : 'text-luxury-burgundy hover:bg-luxury-gold-pale'}">
+                            ${i}
+                        </button>
+                    `;
+                }
             }
+            document.getElementById('pagination').innerHTML = html;
+        }
+
+        function changePage(page) {
+            currentPage = page;
+            renderProducts();
+            document.getElementById('collectionGrid').scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
 
         // ========================
@@ -1102,6 +1154,7 @@
 
         function filterProducts(category) {
             currentFilter = category;
+            currentPage = 1; // Reset to page 1 when filtering
             document.querySelectorAll('.filter-pill').forEach(btn => {
                 btn.classList.toggle('active', btn.textContent === category);
             });

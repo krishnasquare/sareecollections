@@ -635,6 +635,7 @@
             ctx.imageSmoothingQuality = 'high';
 
             let loadedCount = 0;
+            let splashLoaded = false;
             
             // Set initial state
             canvas.style.opacity = '0';
@@ -643,29 +644,39 @@
                 const img = new Image();
                 img.onload = () => {
                     loadedCount++;
+                    preloadedImages[index] = img;
                     const percent = Math.floor((loadedCount / totalFrames) * 100);
                     if (progress) progress.style.width = percent + '%';
                     
-                    if (index === 0) {
+                    // Show the first frame immediately as a splash screen
+                    if (index === 0 && !splashLoaded) {
+                        splashLoaded = true;
                         canvas.width = img.width;
                         canvas.height = img.height;
                         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                    }
-                    
-                    if (loadedCount === videoFrames.length) {
-                        isLoaded = true;
+                        
+                        // Reveal the hero immediately with the first frame
                         if (loading) loading.style.opacity = '0';
                         setTimeout(() => {
                            if (loading) loading.style.display = 'none';
                            canvas.style.opacity = '1';
-                           // Add a subtle zoom out effect when starting
-                           canvas.style.transform = 'scale(1.01)';
-                        }, 1000);
+                           // Trigger the reveal text animations slightly earlier for snappiness
+                           document.querySelectorAll('.hero-reveal').forEach(el => el.style.animationPlayState = 'running');
+                        }, 500);
+                    }
+                    
+                    // Start playback buffer once a small number of initial frames are ready
+                    if (loadedCount === 20 && !isLoaded) {
+                        isLoaded = true;
                         requestAnimationFrame(renderLoop);
+                    }
+                    
+                    // Full load complete
+                    if (loadedCount === videoFrames.length) {
+                        console.log("All hero frames optimized and preloaded.");
                     }
                 };
                 img.src = src;
-                preloadedImages[index] = img;
             });
 
             function renderLoop(timestamp) {
@@ -676,11 +687,18 @@
                 if (elapsed > fpsInterval) {
                     lastPaintTime = timestamp - (elapsed % fpsInterval);
                     
+                    // Check if current or future frames are available
                     const img = preloadedImages[currentFrame];
                     if (img && canvas.width > 0) {
                         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
                     }
-                    currentFrame = (currentFrame + 1) % preloadedImages.length;
+                    
+                    // Advance frame count, only if next frame is at least potentially loaded
+                    // This creates a "smooth buffer" effect
+                    const nextFrame = (currentFrame + 1) % totalFrames;
+                    if (preloadedImages[nextFrame]) {
+                        currentFrame = nextFrame;
+                    }
                 }
             }
         }

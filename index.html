@@ -253,15 +253,15 @@
                 <div class="orb orb-3"></div>
 
                 <!-- Full screen video background - Dynamic Frame Sequence -->
-                <div id="heroVideoBg" class="absolute inset-0 w-full h-full">
-                    <div id="heroLoading" class="absolute inset-0 z-20 flex items-center justify-center bg-[#0a0506] transition-opacity duration-1000">
+                <div id="heroVideoBg" class="absolute inset-0 w-full h-full bg-[#0a0506] bg-cover bg-center no-repeat" style="background-image: url('assets/ezgif-frame-001.jpg');">
+                    <div id="heroLoading" class="absolute inset-0 z-20 flex items-center justify-center bg-[#0a0506]/40 backdrop-blur-sm transition-opacity duration-1000">
                         <div class="w-16 h-1 w-48 bg-luxury-gold/20 rounded-full overflow-hidden">
                             <div id="heroProgress" class="h-full bg-luxury-gold w-0 transition-all duration-300"></div>
                         </div>
                     </div>
                     <!-- Canvas with enhanced image filtering for cinematic quality -->
-                    <canvas id="heroCanvas" class="absolute top-0 left-0 w-full h-full object-cover transition-transform duration-1000" 
-                            style="image-rendering: high-quality; filter: contrast(1.1) saturate(1.1) brightness(0.9); transform: scale(1.05);"></canvas>
+                    <canvas id="heroCanvas" class="absolute top-0 left-0 w-full h-full object-cover transition-opacity duration-700" 
+                            style="image-rendering: high-quality; filter: contrast(1.1) saturate(1.1) brightness(0.9); opacity: 0;"></canvas>
                 </div>
                 
                 <!-- Elegant Cinematic Overlays -->
